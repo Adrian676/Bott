@@ -13,6 +13,11 @@ import os
 import asyncio
 from aiohttp import web
 
+import asyncio
+import os
+from aiohttp import web
+
+
 async def health_server():
     app = web.Application()
     app.router.add_get("/", lambda r: web.Response(text="ok"))
@@ -47,6 +52,19 @@ CONFIG = load_config()
 def cfg_int(key: str) -> int:
     v = CONFIG.get(key, 0)
     return int(v) if v else 0
+
+async def start_health_server():
+    app = web.Application()
+    app.router.add_get("/", lambda r: web.Response(text="OK"))
+    app.router.add_get("/health", lambda r: web.Response(text="OK"))
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    port = int(os.getenv("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
 
 
 # -------------------------
@@ -477,6 +495,7 @@ if not token:
 @bot.event
 async def on_ready():
     asyncio.create_task(health_server())
+    asyncio.create_task(start_health_server())
     print(f"✅ Logado como {bot.user}")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
