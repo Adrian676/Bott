@@ -363,4 +363,5 @@ async def on_ready():
     asyncio.create_task(health_server())
     print(f"✅ Logado como {bot.user}")
 
-client.run(os.getenv("DISCORD_TOKEN"))
+bot.run(os.getenv("DISCORD_TOKEN"))
+
