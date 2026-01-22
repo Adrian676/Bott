@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import re
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 
@@ -57,6 +58,121 @@ intents.members = True          # necessário para boas-vindas e cargos
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+def parse_channel_id_from_mention(text: str) -> int:
+    # <#123>
+    m = re.search(r"<#(\d+)>", text)
+    return int(m.group(1)) if m else 0
+
+def parse_role_id_from_mention(text: str) -> int:
+    # <@&123>
+    m = re.search(r"<@&(\d+)>", text)
+    return int(m.group(1)) if m else 0
+
+async def ask(ctx: commands.Context, question: str, parser, timeout: int = 90) -> int:
+    await ctx.send(question)
+
+    def check(msg: discord.Message):
+        return msg.author == ctx.author and msg.channel == ctx.channel
+
+    try:
+        msg = await bot.wait_for("message", timeout=timeout, check=check)
+    except asyncio.TimeoutError:
+        await ctx.send("⏱️ Tempo esgotado. Rode `!setup` de novo quando quiser.")
+        return 0
+
+    value = parser(msg.content.strip())
+    if not value and msg.content.strip().lower() not in ("pular", "skip"):
+        await ctx.send("⚠️ Não entendi. Responda mencionando corretamente ou digite `pular`.")
+        return await ask(ctx, question, parser, timeout=timeout)
+
+    return value
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def setup(ctx: commands.Context):
+    """
+    Wizard de configuração: preenche config.json por perguntas.
+    Responda mencionando canal/cargo/categoria, ou digite 'pular'.
+    """
+    await ctx.send(
+        "🧩 **Setup do Python Dev Lab Bot**\n"
+        "Vou te fazer algumas perguntas.\n"
+        "Responda mencionando o canal/cargo/categoria, ou digite `pular`.\n"
+        "Você pode cancelar digitando `cancelar` (não salva)."
+    )
+
+    # função auxiliar de cancelamento
+    def is_cancel(text: str) -> bool:
+        return text.strip().lower() in ("cancelar", "cancel", "stop")
+
+    # Perguntas
+    # 1) Canal de logs
+    v = await ask(
+        ctx,
+        "1/6) Marque o **canal de logs** (ex: <#canal-logs>)",
+        parse_channel_id_from_mention
+    )
+    if v and not is_cancel(str(v)):
+        CONFIG["log_channel_id"] = v
+
+    # 2) Canal de boas-vindas
+    v = await ask(
+        ctx,
+        "2/6) Marque o **canal de boas-vindas** (ex: <#boas-vindas>)",
+        parse_channel_id_from_mention
+    )
+    if v:
+        CONFIG["welcome_channel_id"] = v
+
+    # 3) Cargo padrão ao entrar
+    v = await ask(
+        ctx,
+        "3/6) Marque o **cargo padrão** para novos membros (ex: <@&Iniciante>)",
+        parse_role_id_from_mention
+    )
+    if v:
+        CONFIG["default_role_id"] = v
+
+    # 4) Categoria de tickets (categoria também é “canal” para menção)
+    v = await ask(
+        ctx,
+        "4/6) Marque a **categoria de tickets** (ex: <#Tickets>)",
+        parse_channel_id_from_mention
+    )
+    if v:
+        CONFIG["ticket_category_id"] = v
+
+    # 5) Cargo da equipe que vê tickets
+    v = await ask(
+        ctx,
+        "5/6) Marque o **cargo de suporte** que verá tickets (ex: <@&Mod> ou <@&Mentor>)",
+        parse_role_id_from_mention
+    )
+    if v:
+        CONFIG["ticket_support_role_id"] = v
+
+    # 6) Canal de desafios
+    v = await ask(
+        ctx,
+        "6/6) Marque o **canal de desafios** (ex: <#desafios-python>)",
+        parse_channel_id_from_mention
+    )
+    if v:
+        CONFIG["challenge_channel_id"] = v
+
+    # Salvar
+    save_config(CONFIG)
+    await ctx.send(
+        "✅ **Configuração salva!**\n"
+        "Sugestão: reinicie o serviço no Render para garantir que tudo carregou.\n"
+        "Teste com `!ping` e `!ticket abrir teste`."
+    )
+
+@setup.error
+async def setup_error(ctx: commands.Context, error: Exception):
+    if isinstance(error, commands.MissingPermissions):
+        return await ctx.send("⚠️ Você precisa de permissão **Gerenciar Servidor** para usar `!setup`.")
+    raise error
 
 # -------------------------
 # Utility: logging
