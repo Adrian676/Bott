@@ -1,0 +1,13 @@
+{
+  "guild_id": 0,
+
+  "log_channel_id": 1463871426330234942,
+  "welcome_channel_id": 1463640708261875878,
+
+  "default_role_id": 1463641988954849446,
+
+  "ticket_category_id": 1463643389835870321,
+  "ticket_support_role_id": 1463662679209279705,
+
+  "challenge_channel_id": 0
+}

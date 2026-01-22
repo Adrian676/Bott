@@ -1,9 +1,0 @@
-services:
-  - type: worker
-    name: corote-bot
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
-    envVars:
-      - key: DISCORD_BOT_TOKEN
-        sync: false
